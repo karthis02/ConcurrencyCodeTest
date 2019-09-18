@@ -51,14 +51,44 @@ import Foundation
 /// * Showing work through git history
 ///
 func loadMessage(completion: @escaping (String) -> Void) {
-    
-    fetchMessageOne { (messageOne) in
+    var message = ""
+    var errorFlag = false
+    DispatchQueue.global().async {
+        let dispatchGroup = DispatchGroup()
+        
+        dispatchGroup.enter()
+        fetchMessageOne { (messageOne) in
+            message += messageOne
+            dispatchGroup.leave()
+        }
+        
+        let dispatchTimeForMessageOne = (DispatchTime.now() + DispatchTimeInterval.milliseconds(2*1000))
+        let dispatchTimeoutResultForMessageOne = dispatchGroup.wait(timeout:dispatchTimeForMessageOne)
+        errorFlag = getDispatchTimeOutResult(dispatchTimeoutResult:dispatchTimeoutResultForMessageOne)
+        
+        dispatchGroup.enter()
+        fetchMessageTwo { (messageTwo) in
+            message += " " + messageTwo
+            dispatchGroup.leave()
+        }
+        
+        let dispatchTimeFroMessageTwo = (DispatchTime.now() + DispatchTimeInterval.milliseconds(2*1000))
+        let dispatchTimeoutResultForMessageTwo = dispatchGroup.wait(timeout:dispatchTimeFroMessageTwo)
+        errorFlag = getDispatchTimeOutResult(dispatchTimeoutResult:dispatchTimeoutResultForMessageTwo)
+        
+        dispatchGroup.notify(queue: .main) {
+            //All tasks are completed
+            completion(errorFlag ? "Unable to load message - Time out exceeded" : message)
+        }
     }
-    
-    fetchMessageTwo { (messageTwo) in
+}
+//MARK :- function to get 0-2 seconds timed out result
+func getDispatchTimeOutResult(dispatchTimeoutResult: DispatchTimeoutResult) -> Bool {
+    var errorFlag = false
+    if dispatchTimeoutResult  == Dispatch.DispatchTimeoutResult.timedOut {
+        errorFlag = true
+    } else {
+        errorFlag = false
     }
-    
-    /// The completion handler that should be called with the joined messages from fetchMessageOne & fetchMessageTwo
-    /// Please delete this comment before submission.
-    completion("Good morning!")
+    return errorFlag
 }
